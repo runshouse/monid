@@ -7,7 +7,7 @@ export default defineEndpoint({
         displayName: "Magic Hour Video-to-Video",
         summary: "Video-to-Video",
         description:
-            "Video-to-Video. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
+            "Video-to-Video. The initial estimate assumes 30 FPS for FULL or 15 FPS for HALF; final charges use the actual rendered FPS. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
         docsUrl: "https://docs.magichour.ai/api-reference",
         categories: ["video-generation"],
     },
@@ -189,24 +189,22 @@ export default defineEndpoint({
         },
         estimate: ({ data }) => ({
             counts: {
-                CREDIT:
-                    Math.ceil(
-                        (data.input.body.fps_resolution === "FULL" ? 30 : 15) *
-                            (data.input.body.end_seconds -
-                                (data.input.body.start_seconds ?? 0)),
-                    ) * 2,
+                CREDIT: Math.ceil(
+                    (data.input.body.fps_resolution === "FULL" ? 30 : 15) *
+                        (data.input.body.end_seconds -
+                            (data.input.body.start_seconds ?? 0)),
+                ) * 2,
             },
         }),
         evidence: ({ data, utils }) => ({
             counts: {
-                CREDIT:
-                    utils.json.optionalGet(data.output, "$.status") ===
-                    "complete"
-                        ? (utils.json.optionalNum(
-                              data.output,
-                              "$.credits_charged",
-                          ) ?? 0)
-                        : 0,
+                CREDIT: utils.json.optionalGet(data.output, "$.status") ===
+                        "complete"
+                    ? (utils.json.optionalNum(
+                        data.output,
+                        "$.credits_charged",
+                    ) ?? 0)
+                    : 0,
             },
         }),
     },

@@ -73,26 +73,24 @@ export default defineEndpoint({
         },
         estimate: ({ data }) => ({
             counts: {
-                CREDIT:
-                    25 *
+                CREDIT: 25 *
                     (data.input.body.scale_factor === 4 ? 4 : 1) *
                     (["preserve", "pro"].includes(
-                        data.input.body.style?.mode ?? "balanced",
-                    )
+                            data.input.body.style?.mode ?? "balanced",
+                        )
                         ? 1
                         : 2),
             },
         }),
         evidence: ({ data, utils }) => ({
             counts: {
-                CREDIT:
-                    utils.json.optionalGet(data.output, "$.status") ===
-                    "complete"
-                        ? (utils.json.optionalNum(
-                              data.output,
-                              "$.credits_charged",
-                          ) ?? 0)
-                        : 0,
+                CREDIT: utils.json.optionalGet(data.output, "$.status") ===
+                        "complete"
+                    ? (utils.json.optionalNum(
+                        data.output,
+                        "$.credits_charged",
+                    ) ?? 0)
+                    : 0,
             },
         }),
     },

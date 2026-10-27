@@ -7,7 +7,7 @@ export default defineEndpoint({
         displayName: "Magic Hour Audio-to-Video",
         summary: "Audio-to-Video",
         description:
-            "Audio-to-Video. This Monid route pins resolution=720p so pre-run pricing is deterministic. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
+            "Audio-to-Video. Select a resolution for a pre-run credit estimate. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
         docsUrl: "https://docs.magichour.ai/api-reference",
         categories: ["video-generation"],
     },
@@ -35,12 +35,10 @@ export default defineEndpoint({
                         .describe(
                             "End time of your clip (seconds). Must be greater than start_seconds.",
                         ),
-                    resolution: z
-                        .literal("720p")
+                    resolution: z.enum(["480p", "720p", "1080p"])
                         .describe(
-                            "Monid pins 720p resolution for deterministic credit estimates.",
-                        )
-                        .default("720p"),
+                            "Select a supported output resolution for the credit estimate.",
+                        ),
                     assets: z
                         .object({
                             audio_file_path: z
@@ -85,26 +83,30 @@ export default defineEndpoint({
             unit: Unit.CREDIT,
             consumes: { credit: "default", amount: 1 },
         },
-        estimate: ({ data }) => ({
-            counts: {
-                CREDIT:
-                    Math.ceil(
-                        (data.input.body.end_seconds -
-                            (data.input.body.start_seconds ?? 0)) *
-                            24,
-                    ) * 2,
-            },
-        }),
+        estimate: ({ data }) => {
+            const seconds = data.input.body.end_seconds -
+                (data.input.body.start_seconds ?? 0);
+            if (seconds < 1 || seconds > 60) {
+                throw new Error(
+                    "Audio-to-video requires a clip between 1 and 60 seconds.",
+                );
+            }
+            const multiplier = {
+                "480p": 1,
+                "720p": 2,
+                "1080p": 3,
+            }[data.input.body.resolution];
+            return { counts: { CREDIT: Math.ceil(seconds * 24) * multiplier } };
+        },
         evidence: ({ data, utils }) => ({
             counts: {
-                CREDIT:
-                    utils.json.optionalGet(data.output, "$.status") ===
-                    "complete"
-                        ? (utils.json.optionalNum(
-                              data.output,
-                              "$.credits_charged",
-                          ) ?? 0)
-                        : 0,
+                CREDIT: utils.json.optionalGet(data.output, "$.status") ===
+                        "complete"
+                    ? (utils.json.optionalNum(
+                        data.output,
+                        "$.credits_charged",
+                    ) ?? 0)
+                    : 0,
             },
         }),
     },

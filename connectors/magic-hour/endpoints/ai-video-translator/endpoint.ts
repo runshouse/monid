@@ -1,13 +1,13 @@
 import { defineEndpoint, Unit, UsageModelKind } from "@shared/core";
 import { z } from "zod";
 
-// Input schema: Magic Hour public OpenAPI, 2026-10-09; concrete settings pin pricing.
+// API schema: Magic Hour OpenAPI at 2e0bbe9; price inputs: web-app at 595e4b9.
 export default defineEndpoint({
     meta: {
         displayName: "Magic Hour AI Video Translator",
         summary: "AI Video Translator",
         description:
-            "AI Video Translator. This Monid route pins resolution=720p so pre-run pricing is deterministic. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
+            "AI Video Translator. Specify an output resolution to estimate credits; 720p and 1080p require a paid plan. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
         docsUrl: "https://docs.magichour.ai/api-reference",
         categories: ["video-generation"],
     },
@@ -94,7 +94,7 @@ export default defineEndpoint({
                         .describe(
                             "Language to translate the video's speech into.",
                         ),
-                    resolution: z.literal("720p").default("720p"),
+                    resolution: z.enum(["480p", "720p", "1080p"]),
                     assets: z
                         .object({
                             video_file_path: z
@@ -116,25 +116,32 @@ export default defineEndpoint({
             unit: Unit.CREDIT,
             consumes: { credit: "default", amount: 1 },
         },
-        estimate: ({ data }) => ({
-            counts: {
-                CREDIT:
-                    Math.ceil(
-                        data.input.body.end_seconds -
-                            (data.input.body.start_seconds ?? 0),
-                    ) * 72,
-            },
-        }),
+        estimate: ({ data }) => {
+            const { end_seconds, start_seconds, resolution } = data.input.body;
+            const duration = end_seconds - (start_seconds ?? 0);
+            if (duration < 1 || duration > 30) {
+                throw new Error("Translation clips must be 1–30 seconds long.");
+            }
+            return {
+                counts: {
+                    CREDIT: Math.ceil(duration) *
+                        (resolution === "480p"
+                            ? 48
+                            : resolution === "720p"
+                            ? 72
+                            : 96),
+                },
+            };
+        },
         evidence: ({ data, utils }) => ({
             counts: {
-                CREDIT:
-                    utils.json.optionalGet(data.output, "$.status") ===
-                    "complete"
-                        ? (utils.json.optionalNum(
-                              data.output,
-                              "$.credits_charged",
-                          ) ?? 0)
-                        : 0,
+                CREDIT: utils.json.optionalGet(data.output, "$.status") ===
+                        "complete"
+                    ? (utils.json.optionalNum(
+                        data.output,
+                        "$.credits_charged",
+                    ) ?? 0)
+                    : 0,
             },
         }),
     },

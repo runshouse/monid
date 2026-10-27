@@ -1,7 +1,7 @@
 import { defineEndpoint, Unit, UsageModelKind } from "@shared/core";
 import { z } from "zod";
 
-// Input schema: Magic Hour public OpenAPI, 2026-10-09; concrete settings pin pricing.
+// API schema: Magic Hour OpenAPI at 2e0bbe9; price inputs: web-app at 595e4b9.
 export default defineEndpoint({
     meta: {
         displayName: "Magic Hour AI Talking Photo",
@@ -26,13 +26,13 @@ export default defineEndpoint({
                         .number()
                         .min(0)
                         .describe(
-                            "The start time of the input audio in seconds. Maximum clip length depends on style.generation_mode: realistic 300s, prompted 45s.",
+                            "The start time of the input audio in seconds. Maximum clip length depends on style.generation_mode: realistic 300s, prompted 60s.",
                         ),
                     end_seconds: z
                         .number()
                         .min(0.1)
                         .describe(
-                            "The end time of the input audio in seconds. Maximum clip length depends on style.generation_mode: realistic 300s, prompted 45s.",
+                            "The end time of the input audio in seconds. Maximum clip length depends on style.generation_mode: realistic 300s, prompted 60s.",
                         ),
                     assets: z
                         .object({
@@ -80,11 +80,17 @@ export default defineEndpoint({
                             "Attributes used to dictate the style of the output",
                         )
                         .optional(),
+                    resolution: z
+                        .enum(["480p", "720p"])
+                        .describe(
+                            "Output preset. Overrides the deprecated max_resolution; defaults depend on mode and plan.",
+                        )
+                        .optional(),
                     max_resolution: z
                         .number()
                         .int()
                         .describe(
-                            "Constrains the larger dimension (height or width) of the output video. Allows you to set a lower resolution than your plan's maximum if desired. The value is capped by your plan's max resolution.",
+                            "Deprecated larger-dimension cap, limited by plan. Ignored when resolution is supplied.",
                         )
                         .optional(),
                 })
@@ -100,13 +106,17 @@ export default defineEndpoint({
         estimate: ({ data }) => ({
             counts: {
                 CREDIT: Math.round(
-                    (data.input.body.end_seconds -
-                        data.input.body.start_seconds) *
-                        24 *
+                    Math.max(
+                        10,
+                        Math.ceil(
+                            (data.input.body.end_seconds -
+                                data.input.body.start_seconds) * 24,
+                        ),
+                    ) *
                         (["prompted", "standard", "expressive"].includes(
-                            data.input.body.style?.generation_mode ??
-                                "realistic",
-                        )
+                                data.input.body.style?.generation_mode ??
+                                    "realistic",
+                            )
                             ? 1
                             : 2),
                 ),
@@ -114,14 +124,13 @@ export default defineEndpoint({
         }),
         evidence: ({ data, utils }) => ({
             counts: {
-                CREDIT:
-                    utils.json.optionalGet(data.output, "$.status") ===
-                    "complete"
-                        ? (utils.json.optionalNum(
-                              data.output,
-                              "$.credits_charged",
-                          ) ?? 0)
-                        : 0,
+                CREDIT: utils.json.optionalGet(data.output, "$.status") ===
+                        "complete"
+                    ? (utils.json.optionalNum(
+                        data.output,
+                        "$.credits_charged",
+                    ) ?? 0)
+                    : 0,
             },
         }),
     },

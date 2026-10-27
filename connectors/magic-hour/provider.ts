@@ -7,16 +7,23 @@ export default defineProvider({
         displayName: "Magic Hour",
         summary:
             "AI image, video, and audio generation, editing, uploads and project management.",
-        description:
-            "Magic Hour provides APIs for generating and editing " +
+        description: "Magic Hour provides APIs for generating and editing " +
             "images, videos, and audio. Submit a generation, poll its project, and receive " +
             "temporary download URLs for the generated media.",
         homepageUrl: "https://magichour.ai",
         docsUrl: "https://docs.magichour.ai",
-        categories: ["image-generation", "video-generation"],
+        categories: [
+            "image-generation",
+            "video-generation",
+            "music-generation",
+            "speech",
+        ],
         notes: [
             "Generation is asynchronous; Monid polls the corresponding project until it completes.",
             "Download URLs expire. Save completed output promptly.",
+            "A submission with unknown acceptance must be reconciled with Magic Hour before another paid create. Recover a received project ID instead of creating again.",
+            "Account, saved-item and project operations act on the account owning the provider key. The host must enforce caller authorization, project ownership and confirmation of destructive deletes.",
+            "The original GIF no-download error contract is preserved; Monid must reconcile any provider charge on that legacy error. Expanded generations retain their accepted ID while awaiting downloads; timeout settlement remains host-owned.",
         ],
     },
     auth: { inject: presets.auth.bearer() },
@@ -24,63 +31,138 @@ export default defineProvider({
     timeouts: { requestMs: 30_000, runMs: 600_000, pollMs: 5_000 },
     lifecycle: {
         start: async ({ data, utils }) => {
-            const res = await utils.request();
-            if (res.status < 200 || res.status >= 300) {
-                return {
-                    kind: "COMPLETED",
-                    httpStatus: res.status,
-                    output: res.body,
-                };
-            }
             if (
                 data.request.method !== "POST" ||
                 data.request.url.endsWith("/v1/files/upload-urls")
             ) {
+                const res = await utils.request();
                 return {
                     kind: "COMPLETED",
                     httpStatus: res.status,
                     output: res.body,
                 };
             }
-            const projectId = utils.json.optionalGet(res.body, "$.id");
-            if (typeof projectId !== "string" || projectId === "") {
+
+            // Classify every supported create before sending it. An unknown POST
+            // must never silently become an image-project poll.
+            const imageRoutes = [
+                "ai-clothes-changer",
+                "ai-face-editor",
+                "ai-gif-generator",
+                "ai-image-editor",
+                "ai-headshot-generator",
+                "ai-image-generator",
+                "ai-image-upscaler",
+                "ai-meme-generator",
+                "ai-qr-code-generator",
+                "body-swap",
+                "face-swap-photo",
+                "head-swap",
+                "image-background-remover",
+                "photo-colorizer",
+            ];
+            const videoRoutes = [
+                "ai-talking-photo",
+                "ai-ugc-ad",
+                "ai-video-editor",
+                "ai-video-translator",
+                "ai-video-upscaler",
+                "animation",
+                "audio-to-video",
+                "auto-subtitle-generator",
+                "character-replace",
+                "face-swap",
+                "image-to-video",
+                "lip-sync",
+                "text-to-video",
+                "video-to-video",
+            ];
+            const audioRoutes = [
+                "ai-music-generator",
+                "ai-voice-cloner",
+                "ai-voice-generator",
+            ];
+            const collection = data.request.url.endsWith("/v1/face-detection")
+                ? "face-detection"
+                : imageRoutes.some((path) =>
+                        data.request.url.endsWith("/v1/" + path)
+                    )
+                ? "image-projects"
+                : videoRoutes.some((path) =>
+                        data.request.url.endsWith("/v1/" + path)
+                    )
+                ? "video-projects"
+                : audioRoutes.some((path) =>
+                        data.request.url.endsWith("/v1/" + path)
+                    )
+                ? "audio-projects"
+                : undefined;
+            if (collection === undefined) {
                 throw Object.assign(
-                    new Error("Magic Hour submit returned no project id"),
+                    new Error("Unknown Magic Hour create route"),
+                    {
+                        retriable: false,
+                    },
+                );
+            }
+
+            // A transport failure may occur after acceptance. Do not encourage
+            // a second paid create when no project ID was received.
+            let res;
+            try {
+                res = await utils.request();
+            } catch (error) {
+                if (
+                    error !== null && typeof error === "object" &&
+                    "code" in error && error.code === "MISSING_CREDENTIAL"
+                ) {
+                    // Authentication failed before dispatch; preserve the setup error.
+                    throw error;
+                }
+                throw Object.assign(
+                    new Error(
+                        "Magic Hour submission outcome unknown; do not resubmit; reconcile with the provider",
+                    ),
                     { retriable: false },
                 );
             }
+            if (res.status < 200 || res.status >= 300) {
+                if ([400, 401, 402, 404, 422].includes(res.status)) {
+                    return {
+                        kind: "COMPLETED",
+                        httpStatus: res.status,
+                        output: res.body,
+                    };
+                }
+                throw Object.assign(
+                    new Error(
+                        "Magic Hour submission outcome unknown; do not resubmit; reconcile with the provider",
+                    ),
+                    { retriable: false },
+                );
+            }
+            const projectId = utils.json.optionalGet(res.body, "$.id");
+            if (typeof projectId !== "string" || projectId === "") {
+                throw Object.assign(
+                    new Error(
+                        "Magic Hour submission returned no project ID; do not resubmit; reconcile with the provider",
+                    ),
+                    { retriable: false },
+                );
+            }
+            const submittedCredits = utils.json.optionalNum(
+                res.body,
+                "$.credits_charged",
+            );
             return {
                 kind: "RUNNING",
                 state: {
                     externalRunId: projectId,
                     data: {
-                        collection: data.request.url.endsWith(
-                            "/v1/face-detection",
-                        )
-                            ? "face-detection"
-                            : data.request.url.endsWith(
-                                    "/v1/ai-voice-generator",
-                                ) ||
-                                data.request.url.endsWith("/v1/ai-voice-cloner")
-                              ? "audio-projects"
-                              : [
-                                      "ai-talking-photo",
-                                      "ai-video-editor",
-                                      "ai-video-translator",
-                                      "animation",
-                                      "audio-to-video",
-                                      "auto-subtitle-generator",
-                                      "character-replace",
-                                      "face-swap",
-                                      "image-to-video",
-                                      "lip-sync",
-                                      "text-to-video",
-                                      "video-to-video",
-                                  ].some((path) =>
-                                      data.request.url.endsWith("/v1/" + path),
-                                  )
-                                ? "video-projects"
-                                : "image-projects",
+                        collection,
+                        ...(submittedCredits === undefined
+                            ? {}
+                            : { submittedCredits }),
                     },
                 },
             };
@@ -93,9 +175,31 @@ export default defineProvider({
                     { retriable: false },
                 );
             }
+            const storedCollection = utils.json.optionalGet(
+                data.lifecycle.state.data ?? {},
+                "$.collection",
+            );
+            // Existing hosted GIF runs can predate collection-bearing state.
+            const collection = storedCollection === undefined &&
+                    data.request.url.endsWith("/v1/ai-gif-generator")
+                ? "image-projects"
+                : storedCollection;
+            if (
+                collection !== "face-detection" &&
+                collection !== "image-projects" &&
+                collection !== "video-projects" &&
+                collection !== "audio-projects"
+            ) {
+                throw Object.assign(
+                    new Error(
+                        "Magic Hour poll has no valid project collection; reconcile the existing project ID",
+                    ),
+                    { retriable: false },
+                );
+            }
             const res = await utils.http({
                 method: "GET",
-                path: `/v1/${utils.json.optionalGet(data.lifecycle.state.data ?? {}, "$.collection") ?? "image-projects"}/${encodeURIComponent(projectId)}`,
+                path: `/v1/${collection}/${encodeURIComponent(projectId)}`,
             });
             if (res.status < 200 || res.status >= 300) {
                 throw new Error(
@@ -139,8 +243,7 @@ export default defineProvider({
                 return { kind: "RUNNING" };
             }
             const downloads = utils.json.optionalGet(res.body, "$.downloads");
-            const hasDownload =
-                Array.isArray(downloads) &&
+            const hasDownload = Array.isArray(downloads) &&
                 downloads.some(
                     (item) =>
                         item !== null &&
@@ -151,16 +254,47 @@ export default defineProvider({
                 );
             if (
                 !hasDownload &&
-                utils.json.optionalGet(
-                    data.lifecycle.state.data ?? {},
-                    "$.collection",
-                ) !== "face-detection"
+                collection !== "face-detection"
             ) {
+                if (data.request.url.endsWith("/v1/ai-gif-generator")) {
+                    // Preserve the existing GIF result contract. Monid must
+                    // reconcile any provider charge for this error outcome.
+                    return {
+                        kind: "COMPLETED",
+                        httpStatus: 502,
+                        providerHttpStatus: res.status,
+                        output: res.body,
+                    };
+                }
+                // A completed project can already be charged. Keep its ID and
+                // final reported credits available while waiting for output.
+                const submittedCredits = utils.json.optionalNum(
+                    data.lifecycle.state.data ?? {},
+                    "$.submittedCredits",
+                );
+                const finalCredits = utils.json.optionalNum(
+                    res.body,
+                    "$.credits_charged",
+                );
+                logger.warn(
+                    "Magic Hour project is complete without a download; reconcile the existing project ID if polling stops",
+                    { projectId },
+                );
                 return {
-                    kind: "COMPLETED",
-                    httpStatus: 502,
-                    providerHttpStatus: res.status,
-                    output: res.body,
+                    kind: "RUNNING",
+                    state: {
+                        externalRunId: projectId,
+                        stage: "complete_awaiting_download",
+                        data: {
+                            collection,
+                            ...(submittedCredits === undefined
+                                ? {}
+                                : { submittedCredits }),
+                            ...(finalCredits === undefined
+                                ? {}
+                                : { finalCredits }),
+                        },
+                    },
                 };
             }
             return {
@@ -180,10 +314,9 @@ export default defineProvider({
         },
         consolidate: ({ data, utils }) => {
             const status = utils.json.optionalGet(data.output, "$.status");
-            const credits =
-                status === "complete"
-                    ? utils.json.optionalNum(data.output, "$.credits_charged")
-                    : undefined;
+            const credits = status === "complete"
+                ? utils.json.optionalNum(data.output, "$.credits_charged")
+                : undefined;
             return {
                 credits: {
                     ...(credits !== undefined ? { default: credits } : {}),

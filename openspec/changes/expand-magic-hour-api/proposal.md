@@ -1,5 +1,9 @@
 ## Why
-Magic Hour exposes 39 public OpenAPI operations, but Monid currently exposes only AI GIF generation. Agents cannot upload inputs, animate images, edit media or retrieve existing projects.
+Magic Hour exposes 42 public OpenAPI operations, while Monid main exposes only AI GIF generation. Callers need the current image, video and audio tools, asset uploads, face detection and project management through the same connector.
 
 ## Change
-Add the other 38 operations with native request schemas, free utility operations and generation credit metering. Preserve the existing GIF endpoint identity. Bind variable-model routes to explicit priced models/resolutions rather than guessing the cost of account-dependent defaults.
+Refresh existing PR #108 against the current public API and Monid main. Add all 41 operations beyond the original GIF route, including UGC ads, video upscaling and music generation. Preserve the original GIF catalog identity and use distinct identities for project deletion.
+
+Mirror documented inputs, support source-backed model options and require price selectors at the binding when account-dependent defaults would make admission estimates ambiguous. Generation submits once and polls its accepted ID in the correct media collection. Utility operations return directly without rebilling previous project charges.
+
+This source contribution does not publish or enable Monid's hosted service. Monid retains ownership of human review, credentials and caller/project isolation, destructive-operation authorization, interrupted acceptance and billing reconciliation, catalog publication and channel enablement. No new tests or fixtures are included under the contributor's current task restrictions; existing repository checks will run.

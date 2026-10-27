@@ -1,13 +1,13 @@
 import { defineEndpoint, Unit, UsageModelKind } from "@shared/core";
 import { z } from "zod";
 
-// Input schema: Magic Hour public OpenAPI, 2026-10-09; concrete settings pin pricing.
+// API schema: Magic Hour OpenAPI at 2e0bbe9; price inputs: web-app at 595e4b9.
 export default defineEndpoint({
     meta: {
         displayName: "Magic Hour AI Image Editor",
         summary: "AI Image Editor",
         description:
-            "AI Image Editor. This Monid route pins model=qwen-edit, resolution=1k, image_count=1 so pre-run pricing is deterministic. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
+            "AI Image Editor. Select an explicit model and resolution for a pre-run credit estimate. Supported input count, output count, resolution and availability depend on the model and subscription tier. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
         docsUrl: "https://docs.magichour.ai/api-reference",
         categories: ["image-generation"],
     },
@@ -22,8 +22,28 @@ export default defineEndpoint({
                             "Give your image a custom name for easy identification.",
                         )
                         .optional(),
-                    image_count: z.literal(1).default(1),
-                    model: z.literal("qwen-edit").default("qwen-edit"),
+                    image_count: z.union([
+                        z.literal(1),
+                        z.literal(4),
+                        z.literal(9),
+                        z.literal(16),
+                    ]).optional(),
+                    model: z.enum([
+                        "qwen-image-2.1",
+                        "gpt-image-2",
+                        "nano-banana-2",
+                        "flux-2-klein",
+                        "nano-banana-pro",
+                        "seedream-v5-pro",
+                        "seedream-v4.5",
+                        "nano-banana-2.1",
+                        "qwen-edit",
+                        "nano-banana-2-lite",
+                        "krea-2",
+                        "gpt-image-2.5-flare",
+                        "seedream-v4",
+                        "nano-banana",
+                    ]),
                     aspect_ratio: z
                         .enum([
                             "auto",
@@ -39,7 +59,7 @@ export default defineEndpoint({
                             "The aspect ratio of the output image(s). If not specified, defaults to `auto`.",
                         )
                         .optional(),
-                    resolution: z.literal("1k").default("1k"),
+                    resolution: z.enum(["640px", "1k", "2k", "4k"]),
                     style: z
                         .object({
                             prompt: z
@@ -53,9 +73,9 @@ export default defineEndpoint({
                         .object({
                             image_file_paths: z
                                 .array(z.string().min(1))
-                                .max(3)
+                                .max(10)
                                 .describe(
-                                    "The image(s) used in the edit, maximum of 3 images for the pinned Qwen Edit model. This value is either\n- a direct URL to the image file\n- `file_path` field from the response of the [upload urls API](https://docs.magichour.ai/api-reference/files/generate-asset-upload-urls).\n\nSee the [file upload guide](https://docs.magichour.ai/api-reference/files/generate-asset-upload-urls#input-file) for details.\n",
+                                    "The image(s) used in the edit, up to 10 images; model-specific limits apply. This value is either\n- a direct URL to the image file\n- `file_path` field from the response of the [upload urls API](https://docs.magichour.ai/api-reference/files/generate-asset-upload-urls).\n\nSee the [file upload guide](https://docs.magichour.ai/api-reference/files/generate-asset-upload-urls#input-file) for details.\n",
                                 )
                                 .optional(),
                         })
@@ -71,17 +91,104 @@ export default defineEndpoint({
             unit: Unit.CREDIT,
             consumes: { credit: "default", amount: 1 },
         },
-        estimate: ({ data }) => ({ counts: { CREDIT: 10 } }),
+        estimate: ({ data }) => {
+            const { model, resolution, aspect_ratio: aspectRatio } =
+                data.input.body;
+            const count = data.input.body.image_count ?? 1;
+            const grid = model === "nano-banana-2" ||
+                model === "nano-banana-2.1" || model === "nano-banana-pro";
+            const inputCount =
+                data.input.body.assets.image_file_paths?.length ?? 0;
+            if (
+                (!grid && count !== 1) ||
+                (grid && count > 1 &&
+                    ((aspectRatio !== undefined && aspectRatio !== "1:1") ||
+                        resolution !== (count >= 9 ? "1k" : "2k"))) ||
+                (grid && count > 4 && inputCount > 1)
+            ) {
+                throw new Error(
+                    "Unsupported output count, aspect ratio, resolution, or number of input images for the selected model.",
+                );
+            }
+            let credits = 0;
+            if (model === "nano-banana-pro") {
+                if (resolution === "640px") {
+                    throw new Error("Nano Banana Pro does not support 640px.");
+                }
+                credits = resolution === "1k"
+                    ? (count === 1 ? 150 : 250)
+                    : resolution === "2k"
+                    ? (count === 1 ? 200 : 350)
+                    : (count === 1 ? 300 : 450);
+            } else if (
+                model === "nano-banana-2" || model === "nano-banana-2.1"
+            ) {
+                credits = model === "nano-banana-2"
+                    ? (count === 1
+                        ? (resolution === "2k"
+                            ? 150
+                            : resolution === "4k"
+                            ? 200
+                            : 100)
+                        : 200)
+                    : (count === 1
+                        ? (resolution === "2k"
+                            ? 75
+                            : resolution === "4k"
+                            ? 150
+                            : 50)
+                        : 150);
+            } else if (
+                model === "gpt-image-2" || model === "gpt-image-2.5-flare"
+            ) {
+                credits = count * (model === "gpt-image-2" ? 50 : 100) *
+                    (resolution === "640px"
+                        ? 1
+                        : resolution === "1k"
+                        ? 2
+                        : resolution === "2k"
+                        ? 4
+                        : 8);
+            } else if (model === "seedream-v4") {
+                credits = count *
+                    (resolution === "2k" ? 50 : resolution === "4k" ? 60 : 40);
+            } else if (model === "seedream-v4.5") {
+                credits = count *
+                    (resolution === "2k" ? 75 : resolution === "4k" ? 100 : 50);
+            } else if (model === "seedream-v5-pro") {
+                if (resolution === "4k") {
+                    throw new Error("Seedream 5 Pro does not support 4k.");
+                }
+                credits = count * (resolution === "2k" ? 150 : 75);
+            } else if (
+                model === "nano-banana" || model === "nano-banana-2-lite" ||
+                model === "krea-2"
+            ) {
+                if (resolution === "2k" || resolution === "4k") {
+                    throw new Error("The selected model supports up to 1k.");
+                }
+                credits = count * (model === "krea-2" ? 10 : 50);
+            } else {
+                if (resolution === "4k") {
+                    throw new Error("The selected model supports up to 2k.");
+                }
+                credits = count *
+                    ((model === "qwen-image-2.1" || model === "qwen-edit")
+                        ? 10
+                        : 5) *
+                    (resolution === "2k" ? 2 : 1);
+            }
+            return { counts: { CREDIT: credits } };
+        },
         evidence: ({ data, utils }) => ({
             counts: {
-                CREDIT:
-                    utils.json.optionalGet(data.output, "$.status") ===
-                    "complete"
-                        ? (utils.json.optionalNum(
-                              data.output,
-                              "$.credits_charged",
-                          ) ?? 0)
-                        : 0,
+                CREDIT: utils.json.optionalGet(data.output, "$.status") ===
+                        "complete"
+                    ? (utils.json.optionalNum(
+                        data.output,
+                        "$.credits_charged",
+                    ) ?? 0)
+                    : 0,
             },
         }),
     },

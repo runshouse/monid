@@ -95,25 +95,23 @@ export default defineEndpoint({
         },
         estimate: ({ data }) => ({
             counts: {
-                CREDIT:
-                    Math.ceil(
-                        data.input.body.max_fps_limit *
-                            (data.input.body.end_seconds -
-                                data.input.body.start_seconds),
-                    ) *
+                CREDIT: Math.ceil(
+                    data.input.body.max_fps_limit *
+                        (data.input.body.end_seconds -
+                            data.input.body.start_seconds),
+                ) *
                     (data.input.body.style?.generation_mode === "pro" ? 2 : 1),
             },
         }),
         evidence: ({ data, utils }) => ({
             counts: {
-                CREDIT:
-                    utils.json.optionalGet(data.output, "$.status") ===
-                    "complete"
-                        ? (utils.json.optionalNum(
-                              data.output,
-                              "$.credits_charged",
-                          ) ?? 0)
-                        : 0,
+                CREDIT: utils.json.optionalGet(data.output, "$.status") ===
+                        "complete"
+                    ? (utils.json.optionalNum(
+                        data.output,
+                        "$.credits_charged",
+                    ) ?? 0)
+                    : 0,
             },
         }),
     },

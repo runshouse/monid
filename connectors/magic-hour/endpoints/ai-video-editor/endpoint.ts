@@ -1,13 +1,13 @@
 import { defineEndpoint, Unit, UsageModelKind } from "@shared/core";
 import { z } from "zod";
 
-// Input schema: Magic Hour public OpenAPI, 2026-10-09; concrete settings pin pricing.
+// API schema: Magic Hour OpenAPI at 2e0bbe9; price inputs: web-app at 595e4b9.
 export default defineEndpoint({
     meta: {
         displayName: "Magic Hour AI Video Editor",
         summary: "AI Video Editor",
         description:
-            "AI Video Editor. This Monid route pins model=ltx-2.5, resolution=720p so pre-run pricing is deterministic. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
+            "AI Video Editor. Choose an explicit model and resolution for a credit estimate. Supported duration and output resolution depend on the model and plan. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
         docsUrl: "https://docs.magichour.ai/api-reference",
         categories: ["video-generation"],
     },
@@ -33,10 +33,15 @@ export default defineEndpoint({
                         .number()
                         .min(0.1)
                         .describe(
-                            "End time of your clip in seconds. Must be greater than `start_seconds`. Minimum duration depends on model: `gemini-omni-1.1`: 3s, LTX 2.5: 0.5s. Maximum duration depends on model: `gemini-omni-1.1`: 10s, LTX 2.5: 20s.",
+                            "End time of your clip in seconds. Must be greater than `start_seconds`. Minimum duration depends on model: `gemini-omni-1.1`: 3s, LTX 2.5: 0.5s. Maximum duration depends on model: `gemini-omni-1.1`: 10s, LTX 2.5: 60s (30s at 1080p).",
                         ),
-                    model: z.literal("ltx-2.5").default("ltx-2.5"),
-                    resolution: z.literal("720p").default("720p"),
+                    model: z.enum([
+                        "gemini-omni-1.1",
+                        "ltx-2.5",
+                        "gemini-omni",
+                        "ltx-2.3",
+                    ]),
+                    resolution: z.enum(["480p", "720p", "1080p"]),
                     style: z
                         .object({
                             prompt: z
@@ -66,26 +71,42 @@ export default defineEndpoint({
             unit: Unit.CREDIT,
             consumes: { credit: "default", amount: 1 },
         },
-        estimate: ({ data }) => ({
-            counts: {
-                CREDIT:
-                    Math.ceil(
-                        (data.input.body.end_seconds -
-                            (data.input.body.start_seconds ?? 0)) *
-                            24,
-                    ) * 2,
-            },
-        }),
+        estimate: ({ data }) => {
+            const { model, resolution, end_seconds, start_seconds } =
+                data.input.body;
+            const duration = end_seconds - (start_seconds ?? 0);
+            const omni = model === "gemini-omni-1.1" || model === "gemini-omni";
+            if (
+                duration < (omni ? 3 : 0.5) ||
+                duration > (omni ? 10 : resolution === "1080p" ? 30 : 60) ||
+                (omni && resolution === "480p")
+            ) {
+                throw new Error(
+                    "Unsupported duration or resolution for the selected model.",
+                );
+            }
+            const multiplier = omni
+                ? (resolution === "720p" ? 6 : 8)
+                : resolution === "480p"
+                ? 1
+                : resolution === "720p"
+                ? 2
+                : 3;
+            return {
+                counts: {
+                    CREDIT: Math.round(Math.ceil(duration * 24) * multiplier),
+                },
+            };
+        },
         evidence: ({ data, utils }) => ({
             counts: {
-                CREDIT:
-                    utils.json.optionalGet(data.output, "$.status") ===
-                    "complete"
-                        ? (utils.json.optionalNum(
-                              data.output,
-                              "$.credits_charged",
-                          ) ?? 0)
-                        : 0,
+                CREDIT: utils.json.optionalGet(data.output, "$.status") ===
+                        "complete"
+                    ? (utils.json.optionalNum(
+                        data.output,
+                        "$.credits_charged",
+                    ) ?? 0)
+                    : 0,
             },
         }),
     },

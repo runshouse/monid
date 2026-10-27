@@ -1,5 +1,5 @@
 // Input schema transcribed from Magic Hour public OpenAPI (2026-10-09).
-import { defineEndpoint, UsageModelKind, Unit } from "@shared/core";
+import { defineEndpoint, Unit, UsageModelKind } from "@shared/core";
 import { z } from "zod";
 
 export default defineEndpoint({
@@ -124,14 +124,13 @@ export default defineEndpoint({
         }),
         evidence: ({ data, utils }) => ({
             counts: {
-                CREDIT:
-                    utils.json.optionalGet(data.output, "$.status") ===
-                    "complete"
-                        ? (utils.json.optionalNum(
-                              data.output,
-                              "$.credits_charged",
-                          ) ?? 0)
-                        : 0,
+                CREDIT: utils.json.optionalGet(data.output, "$.status") ===
+                        "complete"
+                    ? (utils.json.optionalNum(
+                        data.output,
+                        "$.credits_charged",
+                    ) ?? 0)
+                    : 0,
             },
         }),
     },

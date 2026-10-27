@@ -1,13 +1,13 @@
 import { defineEndpoint, Unit, UsageModelKind } from "@shared/core";
 import { z } from "zod";
 
-// Input schema: Magic Hour public OpenAPI, 2026-10-09; concrete settings pin pricing.
+// API schema: Magic Hour OpenAPI at 2e0bbe9; price inputs: web-app at 595e4b9.
 export default defineEndpoint({
     meta: {
         displayName: "Magic Hour Character Replace",
         summary: "Character Replace",
         description:
-            "Character Replace. This Monid route pins model=wan-animate, resolution=720p so pre-run pricing is deterministic. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
+            "Character Replace. Specify the model and resolution to estimate credits; supported modes, durations, and point selection depend on the model and subscription plan. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
         docsUrl: "https://docs.magichour.ai/api-reference",
         categories: ["video-generation"],
     },
@@ -35,8 +35,8 @@ export default defineEndpoint({
                         .describe(
                             "End time of your clip (seconds). Must be greater than start_seconds.",
                         ),
-                    model: z.literal("wan-animate").default("wan-animate"),
-                    resolution: z.literal("720p").default("720p"),
+                    model: z.enum(["wan-animate", "kling-3.0", "minimax-h3"]),
+                    resolution: z.enum(["480p", "720p", "1080p"]),
                     assets: z
                         .object({
                             video_file_path: z
@@ -64,10 +64,13 @@ export default defineEndpoint({
                                     "Processing mode. `replace` swaps the detected subject with your reference character. `animate` transfers motion from the video onto your character image.",
                                 )
                                 .optional(),
+                            prompt: z.string().max(2000).describe(
+                                "Optional direction for Kling 3.0 and MiniMax H3.",
+                            ).optional(),
                             selection_mode: z
                                 .enum(["auto", "point"])
                                 .describe(
-                                    "How to locate the subject in the source video. `auto` detects a person automatically. `point` uses your `points` to mark the subject and is supported by `wan-animate`. Defaults to `auto`.",
+                                    "How to locate the subject in the source video. `auto` detects a person automatically. `point` uses your `points` to mark the subject and is supported by `wan-animate` and by `minimax-h3` in replace mode. Defaults to `auto`.",
                                 )
                                 .optional(),
                             points: z
@@ -98,7 +101,7 @@ export default defineEndpoint({
                                         .strict(),
                                 )
                                 .describe(
-                                    "On-frame markers for manual subject selection. Required when `selection_mode` is `point`. Ignored when `selection_mode` is `auto` or omitted. Rejected for models without subject selection (supported by `wan-animate`).",
+                                    "On-frame markers for manual subject selection. Required when `selection_mode` is `point`. Ignored when `selection_mode` is `auto` or omitted. Rejected for models without subject selection (supported by `wan-animate` and by `minimax-h3` in replace mode).",
                                 )
                                 .optional(),
                         })
@@ -117,26 +120,52 @@ export default defineEndpoint({
             unit: Unit.CREDIT,
             consumes: { credit: "default", amount: 1 },
         },
-        estimate: ({ data }) => ({
-            counts: {
-                CREDIT:
-                    Math.ceil(
-                        (data.input.body.end_seconds -
-                            (data.input.body.start_seconds ?? 0)) *
-                            24,
-                    ) * 4,
-            },
-        }),
+        estimate: ({ data }) => {
+            const { model, resolution, end_seconds, start_seconds, style } =
+                data.input.body;
+            const duration = end_seconds - (start_seconds ?? 0);
+            if (
+                duration <= 0 ||
+                (model === "wan-animate" && resolution === "1080p") ||
+                (model === "kling-3.0" &&
+                    (resolution === "480p" || duration < 3 ||
+                        duration > (style?.mode === "animate" ? 30 : 10))) ||
+                (model === "minimax-h3" && (duration < 1 || duration > 60))
+            ) {
+                throw new Error(
+                    "Unsupported model, resolution, mode, or clip length.",
+                );
+            }
+            const multiplier = model === "wan-animate"
+                ? (resolution === "480p" ? 2 : 4)
+                : model === "kling-3.0"
+                ? (resolution === "720p" ? 2 : 3)
+                : resolution === "480p"
+                ? 1
+                : resolution === "720p"
+                ? 2
+                : 3;
+            const chargedDuration = model === "kling-3.0"
+                ? Math.floor(duration)
+                : duration;
+            return {
+                counts: {
+                    CREDIT: Math.round(
+                        Math.max(10, Math.ceil(chargedDuration * 24)) *
+                            multiplier,
+                    ),
+                },
+            };
+        },
         evidence: ({ data, utils }) => ({
             counts: {
-                CREDIT:
-                    utils.json.optionalGet(data.output, "$.status") ===
-                    "complete"
-                        ? (utils.json.optionalNum(
-                              data.output,
-                              "$.credits_charged",
-                          ) ?? 0)
-                        : 0,
+                CREDIT: utils.json.optionalGet(data.output, "$.status") ===
+                        "complete"
+                    ? (utils.json.optionalNum(
+                        data.output,
+                        "$.credits_charged",
+                    ) ?? 0)
+                    : 0,
             },
         }),
     },

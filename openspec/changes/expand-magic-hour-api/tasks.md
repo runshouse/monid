@@ -1,6 +1,9 @@
-- [x] Inventory live public OpenAPI and existing connector.
-- [x] Add native input schemas and distinct operation identities.
-- [x] Extend async polling across media collections without rebilling utility reads.
-- [x] Pin supported variable-rate settings and declare canonical credit estimates.
-- [x] Pass existing typecheck, replay tests and catalog compilation in remote CI (run 37908556869, 1,245 passed, 0 failed; final copy-only follow-up reruns the same checks).
-- [ ] Monid review, merge and hosted catalog publication.
+- [x] Resume the existing PR branch and normally merge current upstream main; preserve existing public identities.
+- [x] Inventory all 42 current public API operations, including UGC ads, video upscaling and music generation.
+- [x] Refresh production schemas, concrete model choices and source-backed credit estimates against the current API contract.
+- [x] Review async routing, accepted-ID preservation, ambiguous submission handling and utility billing isolation.
+- [x] Add the 42 Magic Hour identities to the existing lock while preserving unrelated IDs. Reproduce and disclose unrelated identity-lock drift on unchanged upstream.
+- [x] Run existing checks: full replay suite 1,298 passed, 0 failed, 221 ignored; final review corrections rechecked with typecheck, compiler, lint, GIF replay (8 passed, 1 ignored) and pure estimate CLI. No new tests or fixtures.
+- [x] Prepare the validated contribution for updating/reopening existing PR #108 without a duplicate submission.
+- [ ] Monid review, inherited identity-lock reconciliation, merge, private publication, authorization and execution enablement.
+- [ ] Verify an accepted hosted run, usable delivered media and final charge through the authorized enabled route.
