@@ -4,12 +4,14 @@ import { z } from "zod";
 export default defineEndpoint({
     meta: {
         displayName: "Magic Hour AI UGC Ad",
-        summary: "Create a talking ad from an image and script",
+        summary:
+            "Create a talking ad from an image and script with Kling 3.0, LTX or Veo",
         description:
-            "Creates an asynchronous UGC video. Specify a model and resolution for a credit estimate; supported combinations and durations depend on the model and account plan. Poll the video project and save expiring output URLs promptly.",
+            "Create an audio-inclusive talking UGC ad from an image and script with Kling 3.0, LTX 2.5 or Veo 3.1. Specify a model and resolution for a credit estimate; supported combinations and durations depend on the model and account plan. Poll the video project and save expiring output URLs promptly.",
         docsUrl: "https://docs.magichour.ai/api-reference",
         categories: ["video-generation"],
         notes: [
+            "Kling 3.0 talking-ad rates verified 2026-10-27: 72 Magic Hour credits/second at 720p or 96 at 1080p, including audio. Inspect Monid for the hosted USD price; final project credits may differ. See https://docs.magichour.ai/api-reference/models.",
             "Supported durations are Kling 3–15 seconds; LTX 1–10 seconds and 15–60 in 5-second increments; Veo 4, 6, 8 and 15–141 in 7-second increments.",
             "LTX supports 480p, 720p and 1080p; Kling supports 720p and 1080p; Veo supports 720p. Availability depends on the account plan.",
             "Scripts must be nonempty after trimming and at most 1,804 characters for LTX or 2,500 for Kling and Veo.",

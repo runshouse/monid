@@ -15,9 +15,10 @@ export default defineProvider({
     meta: {
         displayName: "Magic Hour",
         summary:
-            "AI image, video, and audio generation, editing, uploads and project management.",
+            "Kling, Seedance, Veo and other AI image, video and audio tools through one API.",
         description: "Magic Hour provides APIs for generating and editing " +
-            "images, videos, and audio. Submit a generation, poll its project, and receive " +
+            "images, videos, and audio, including Kling 2.6 and Kling 3.0 text-to-video, image-to-video, " +
+            "Kling 3.0 character motion transfer and talking ads. Submit a generation, poll its project, and receive " +
             "temporary download URLs for the generated media.",
         homepageUrl: "https://magichour.ai",
         docsUrl: "https://docs.magichour.ai",
@@ -29,6 +30,7 @@ export default defineProvider({
         ],
         notes: [
             "Generation is asynchronous; Monid polls the corresponding project until it completes.",
+            "Credit estimates count Magic Hour credits, not US dollars. Monid sets the hosted USD rate card; inspect the selected endpoint and price the exact model, resolution, duration, audio and reference inputs before running. Direct-account payment options: https://docs.magichour.ai/billing/subscription-pricing and https://docs.magichour.ai/billing/usage-based-pricing.",
             "Download URLs expire. Save completed output promptly.",
             "A submission with unknown acceptance must be reconciled with Magic Hour before another paid create. Recover a received project ID instead of creating again.",
             "Account, saved-item and project operations act on the account owning the provider key. The host must enforce caller authorization, project ownership and confirmation of destructive deletes.",

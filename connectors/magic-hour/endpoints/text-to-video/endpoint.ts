@@ -5,12 +5,14 @@ import { z } from "zod";
 export default defineEndpoint({
     meta: {
         displayName: "Magic Hour Text-to-Video",
-        summary: "Text-to-Video",
+        summary:
+            "Generate video from text with Kling 3.0, Kling 2.6, Seedance, Veo or LTX",
         description:
-            "Text-to-Video. Choose a concrete model and resolution. When references are supplied, the estimate uses the highest applicable reference rate; actual credits settle on completion. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
+            "Generate a video from a text prompt with Kling 3.0, Kling 2.6, Seedance, Veo, LTX and other supported models. A 5-second Kling 3.0 clip at 720p with audio off and no video reference uses an estimated 240 Magic Hour credits. Choose a concrete model and resolution. When references are supplied, the estimate uses the highest applicable reference rate; actual credits settle on completion. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
         docsUrl: "https://docs.magichour.ai/api-reference",
         categories: ["video-generation"],
         notes: [
+            "Kling base rates verified 2026-10-27, without video references: Kling 3.0 uses 48 credits/second at 720p with audio off, 72 with audio on; 1080p uses 72 or 96 respectively. Kling 2.6 uses 36 at 720p or 72 at 1080p and does not support native audio. These are credit estimates, not a Monid USD quote; final project credits may differ. See https://docs.magichour.ai/api-reference/models.",
             "Magic Hour validates the selected model, resolution, duration, audio and reference combination. Unsupported model-resolution pairs estimate zero and are rejected by Magic Hour.",
         ],
     },

@@ -5,9 +5,10 @@ import { z } from "zod";
 export default defineEndpoint({
     meta: {
         displayName: "Magic Hour Character Replace",
-        summary: "Character Replace",
+        summary:
+            "Transfer character motion with Kling 3.0, Wan Animate or MiniMax H3",
         description:
-            "Character Replace. Specify the model and resolution to estimate credits; supported modes, durations, and point selection depend on the model and subscription plan. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
+            "Replace a character in a video or animate a character image from a reference video using Kling 3.0, Wan Animate or MiniMax H3. Specify the model and resolution to estimate credits; supported modes, durations, and point selection depend on the model and subscription plan. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
         docsUrl: "https://docs.magichour.ai/api-reference",
         categories: ["video-generation"],
         notes: [
