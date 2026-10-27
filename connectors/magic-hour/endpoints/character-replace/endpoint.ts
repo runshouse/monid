@@ -10,6 +10,9 @@ export default defineEndpoint({
             "Character Replace. Specify the model and resolution to estimate credits; supported modes, durations, and point selection depend on the model and subscription plan. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
         docsUrl: "https://docs.magichour.ai/api-reference",
         categories: ["video-generation"],
+        notes: [
+            "Magic Hour validates that end time exceeds start time and rejects unsupported combinations. Wan Animate supports 480p and 720p; Kling 3.0 supports 720p and 1080p, with 3–10 second replace or 3–30 second animate clips; MiniMax H3 supports 1–60 second clips. Subject selection also varies by model and mode.",
+        ],
     },
     request: { method: "POST", path: "/v1/character-replace" },
     input: {
@@ -121,25 +124,13 @@ export default defineEndpoint({
             consumes: { credit: "default", amount: 1 },
         },
         estimate: ({ data }) => {
-            const { model, resolution, end_seconds, start_seconds, style } =
+            const { model, resolution, end_seconds, start_seconds } =
                 data.input.body;
-            const duration = end_seconds - (start_seconds ?? 0);
-            if (
-                duration <= 0 ||
-                (model === "wan-animate" && resolution === "1080p") ||
-                (model === "kling-3.0" &&
-                    (resolution === "480p" || duration < 3 ||
-                        duration > (style?.mode === "animate" ? 30 : 10))) ||
-                (model === "minimax-h3" && (duration < 1 || duration > 60))
-            ) {
-                throw new Error(
-                    "Unsupported model, resolution, mode, or clip length.",
-                );
-            }
+            const duration = Math.max(0, end_seconds - (start_seconds ?? 0));
             const multiplier = model === "wan-animate"
-                ? (resolution === "480p" ? 2 : 4)
+                ? (resolution === "480p" ? 2 : resolution === "720p" ? 4 : 0)
                 : model === "kling-3.0"
-                ? (resolution === "720p" ? 2 : 3)
+                ? (resolution === "480p" ? 0 : resolution === "720p" ? 2 : 3)
                 : resolution === "480p"
                 ? 1
                 : resolution === "720p"

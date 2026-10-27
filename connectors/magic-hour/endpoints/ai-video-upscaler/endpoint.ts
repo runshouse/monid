@@ -9,10 +9,15 @@ export default defineEndpoint({
             "Creates an asynchronous video upscale. A paid Magic Hour plan is required. Poll the video project and save expiring output URLs promptly.",
         docsUrl: "https://docs.magichour.ai/api-reference",
         categories: ["video-generation"],
+        notes: [
+            "The end time must exceed the start time. The API limits output to 4,000 frames at 30 fps; a paid plan is required.",
+        ],
     },
     request: { method: "POST", path: "/v1/ai-video-upscaler" },
     input: {
         schema: {
+            // The vendor OpenAPI leaves body/assets additionalProperties unrestricted.
+            // Magic Hour ignores unknown properties; keep the input mirror permissive.
             body: z.object({
                 name: z.string().optional(),
                 start_seconds: z.number().min(0).describe(
@@ -41,15 +46,10 @@ export default defineEndpoint({
         estimate: ({ data }) => {
             const duration = data.input.body.end_seconds -
                 (data.input.body.start_seconds ?? 0);
-            if (duration <= 0 || Math.ceil(duration * 30) > 4000) {
-                throw new Error(
-                    "The clip must have positive duration and contain at most 4,000 frames at 30 fps.",
-                );
-            }
             return {
                 counts: {
                     CREDIT: Math.round(
-                        duration *
+                        Math.max(0, duration) *
                             (data.input.body.resolution === "720p"
                                 ? 30
                                 : data.input.body.resolution === "1080p"

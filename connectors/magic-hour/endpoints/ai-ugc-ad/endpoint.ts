@@ -9,6 +9,11 @@ export default defineEndpoint({
             "Creates an asynchronous UGC video. Specify a model and resolution for a credit estimate; supported combinations and durations depend on the model and account plan. Poll the video project and save expiring output URLs promptly.",
         docsUrl: "https://docs.magichour.ai/api-reference",
         categories: ["video-generation"],
+        notes: [
+            "Supported durations are Kling 3–15 seconds; LTX 1–10 seconds and 15–60 in 5-second increments; Veo 4, 6, 8 and 15–141 in 7-second increments.",
+            "LTX supports 480p, 720p and 1080p; Kling supports 720p and 1080p; Veo supports 720p. Availability depends on the account plan.",
+            "Scripts must be nonempty after trimming and at most 1,804 characters for LTX or 2,500 for Kling and Veo.",
+        ],
     },
     request: { method: "POST", path: "/v1/ai-ugc-ad" },
     input: {
@@ -41,28 +46,7 @@ export default defineEndpoint({
             consumes: { credit: "default", amount: 1 },
         },
         estimate: ({ data }) => {
-            const { model, resolution, end_seconds: seconds, script } =
-                data.input.body;
-            const validDuration = model === "kling-3.0"
-                ? seconds >= 3 && seconds <= 15
-                : model === "ltx-2.5"
-                ? (seconds <= 10 || (seconds <= 60 && seconds % 5 === 0))
-                : ([4, 6, 8].includes(seconds) ||
-                    (seconds >= 15 && seconds <= 141 &&
-                        (seconds - 15) % 7 === 0));
-            const validResolution = model === "ltx-2.5" ||
-                (model === "kling-3.0"
-                    ? resolution !== "480p"
-                    : resolution === "720p");
-            if (
-                !validDuration || !validResolution ||
-                script.trim().length === 0 ||
-                script.trim().length > (model === "ltx-2.5" ? 1804 : 2500)
-            ) {
-                throw new Error(
-                    "Unsupported UGC model, resolution, duration, or script length.",
-                );
-            }
+            const { model, resolution, end_seconds: seconds } = data.input.body;
             const rate = model === "veo3.1"
                 ? 360
                 : model === "kling-3.0"

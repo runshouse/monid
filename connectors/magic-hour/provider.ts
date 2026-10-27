@@ -1,6 +1,15 @@
 import { defineProvider, presets } from "@shared/core";
 
-/** Magic Hour — asynchronous AI image, video, and audio generation. */
+/**
+ * Magic Hour: asynchronous AI image, video and audio tools.
+ * Public schemas and starting prices, verified 2026-10-27:
+ * https://docs.magichour.ai/api-reference/openapi.json
+ * https://docs.magichour.ai/api-reference/models#image-models
+ * The public model page does not publish every resolution/batch rate. Full
+ * estimates also follow the first-party API charging source at web-app commit
+ * 595e4b97aa511290d9d52d86ad7ce31f57d4d9ad (image provider configs and self-hosted.ts).
+ * The final reported credits_charged remains the vendor settlement meter.
+ */
 export default defineProvider({
     name: "magic-hour",
     meta: {

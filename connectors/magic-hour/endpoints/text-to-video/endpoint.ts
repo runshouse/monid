@@ -10,6 +10,9 @@ export default defineEndpoint({
             "Text-to-Video. Choose a concrete model and resolution. When references are supplied, the estimate uses the highest applicable reference rate; actual credits settle on completion. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
         docsUrl: "https://docs.magichour.ai/api-reference",
         categories: ["video-generation"],
+        notes: [
+            "Magic Hour validates the selected model, resolution, duration, audio and reference combination. Unsupported model-resolution pairs estimate zero and are rejected by Magic Hour.",
+        ],
     },
     request: { method: "POST", path: "/v1/text-to-video" },
     input: {
@@ -223,11 +226,6 @@ export default defineEndpoint({
                 : audio
                 ? values[1]
                 : values[0];
-            if (multiplier === 0) {
-                throw new Error(
-                    "The selected model and resolution are not supported.",
-                );
-            }
             const fps = model === "wan-2.2" ? 16 : 24;
             return {
                 counts: {

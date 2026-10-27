@@ -10,6 +10,9 @@ export default defineEndpoint({
             "Video-to-Video. The initial estimate assumes 30 FPS for FULL or 15 FPS for HALF; final charges use the actual rendered FPS. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
         docsUrl: "https://docs.magichour.ai/api-reference",
         categories: ["video-generation"],
+        notes: [
+            "Magic Hour validates that the end time exceeds the start time.",
+        ],
     },
     request: { method: "POST", path: "/v1/video-to-video" },
     input: {
@@ -191,8 +194,11 @@ export default defineEndpoint({
             counts: {
                 CREDIT: Math.ceil(
                     (data.input.body.fps_resolution === "FULL" ? 30 : 15) *
-                        (data.input.body.end_seconds -
-                            (data.input.body.start_seconds ?? 0)),
+                        Math.max(
+                            0,
+                            data.input.body.end_seconds -
+                                data.input.body.start_seconds,
+                        ),
                 ) * 2,
             },
         }),

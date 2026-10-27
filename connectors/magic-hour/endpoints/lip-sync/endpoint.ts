@@ -10,6 +10,9 @@ export default defineEndpoint({
             "Lip Sync. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
         docsUrl: "https://docs.magichour.ai/api-reference",
         categories: ["video-generation"],
+        notes: [
+            "Magic Hour validates that the end time exceeds the start time.",
+        ],
     },
     request: { method: "POST", path: "/v1/lip-sync" },
     input: {
@@ -97,8 +100,11 @@ export default defineEndpoint({
             counts: {
                 CREDIT: Math.ceil(
                     data.input.body.max_fps_limit *
-                        (data.input.body.end_seconds -
-                            data.input.body.start_seconds),
+                        Math.max(
+                            0,
+                            data.input.body.end_seconds -
+                                data.input.body.start_seconds,
+                        ),
                 ) *
                     (data.input.body.style?.generation_mode === "pro" ? 2 : 1),
             },

@@ -10,6 +10,9 @@ export default defineEndpoint({
             "AI Video Editor. Choose an explicit model and resolution for a credit estimate. Supported duration and output resolution depend on the model and plan. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
         docsUrl: "https://docs.magichour.ai/api-reference",
         categories: ["video-generation"],
+        notes: [
+            "Model, resolution and clip-length combinations are validated by Magic Hour; Omni supports 720p or 1080p and clips of 3–10 seconds. LTX supports 480p, 720p or 1080p, with length limits varying by resolution.",
+        ],
     },
     request: { method: "POST", path: "/v1/ai-video-editor" },
     input: {
@@ -74,19 +77,10 @@ export default defineEndpoint({
         estimate: ({ data }) => {
             const { model, resolution, end_seconds, start_seconds } =
                 data.input.body;
-            const duration = end_seconds - (start_seconds ?? 0);
+            const duration = Math.max(0, end_seconds - (start_seconds ?? 0));
             const omni = model === "gemini-omni-1.1" || model === "gemini-omni";
-            if (
-                duration < (omni ? 3 : 0.5) ||
-                duration > (omni ? 10 : resolution === "1080p" ? 30 : 60) ||
-                (omni && resolution === "480p")
-            ) {
-                throw new Error(
-                    "Unsupported duration or resolution for the selected model.",
-                );
-            }
             const multiplier = omni
-                ? (resolution === "720p" ? 6 : 8)
+                ? (resolution === "480p" ? 0 : resolution === "720p" ? 6 : 8)
                 : resolution === "480p"
                 ? 1
                 : resolution === "720p"

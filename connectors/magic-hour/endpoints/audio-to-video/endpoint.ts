@@ -10,6 +10,9 @@ export default defineEndpoint({
             "Audio-to-Video. Select a resolution for a pre-run credit estimate. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
         docsUrl: "https://docs.magichour.ai/api-reference",
         categories: ["video-generation"],
+        notes: [
+            "Magic Hour validates that the end time exceeds the start time and the clip is between 1 and 60 seconds long.",
+        ],
     },
     request: { method: "POST", path: "/v1/audio-to-video" },
     input: {
@@ -84,13 +87,11 @@ export default defineEndpoint({
             consumes: { credit: "default", amount: 1 },
         },
         estimate: ({ data }) => {
-            const seconds = data.input.body.end_seconds -
-                (data.input.body.start_seconds ?? 0);
-            if (seconds < 1 || seconds > 60) {
-                throw new Error(
-                    "Audio-to-video requires a clip between 1 and 60 seconds.",
-                );
-            }
+            const seconds = Math.max(
+                0,
+                data.input.body.end_seconds -
+                    (data.input.body.start_seconds ?? 0),
+            );
             const multiplier = {
                 "480p": 1,
                 "720p": 2,

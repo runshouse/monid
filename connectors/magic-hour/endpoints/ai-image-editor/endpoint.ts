@@ -1,7 +1,7 @@
 import { defineEndpoint, Unit, UsageModelKind } from "@shared/core";
 import { z } from "zod";
 
-// API schema: Magic Hour OpenAPI at 2e0bbe9; price inputs: web-app at 595e4b9.
+// Pricing sources and verification date: see the provider.ts header.
 export default defineEndpoint({
     meta: {
         displayName: "Magic Hour AI Image Editor",
@@ -10,6 +10,11 @@ export default defineEndpoint({
             "AI Image Editor. Select an explicit model and resolution for a pre-run credit estimate. Supported input count, output count, resolution and availability depend on the model and subscription tier. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
         docsUrl: "https://docs.magichour.ai/api-reference",
         categories: ["image-generation"],
+        notes: [
+            "Explicit model and resolution are required here to estimate credits. Model, subscription plan, source image count and output count determine availability.",
+            "Grid models nano-banana-2, nano-banana-2.1 and nano-banana-pro accept 1, 4, 9 or 16 outputs; other models accept one. Multiple outputs require 1:1 and 2k for four or 1k for nine or sixteen. With more than one source image grid models allow at most four outputs.",
+            "Nano Banana Pro does not support 640px; Nano Banana, Nano Banana 2 Lite and Krea 2 support at most 1k; Seedream 5 Pro, Qwen Edit, Qwen Image 2.1 and Flux 2 Klein support at most 2k.",
+        ],
     },
     request: { method: "POST", path: "/v1/ai-image-editor" },
     input: {
@@ -106,14 +111,12 @@ export default defineEndpoint({
                         resolution !== (count >= 9 ? "1k" : "2k"))) ||
                 (grid && count > 4 && inputCount > 1)
             ) {
-                throw new Error(
-                    "Unsupported output count, aspect ratio, resolution, or number of input images for the selected model.",
-                );
+                return { counts: { CREDIT: 0 } };
             }
             let credits = 0;
             if (model === "nano-banana-pro") {
                 if (resolution === "640px") {
-                    throw new Error("Nano Banana Pro does not support 640px.");
+                    return { counts: { CREDIT: 0 } };
                 }
                 credits = resolution === "1k"
                     ? (count === 1 ? 150 : 250)
@@ -157,7 +160,7 @@ export default defineEndpoint({
                     (resolution === "2k" ? 75 : resolution === "4k" ? 100 : 50);
             } else if (model === "seedream-v5-pro") {
                 if (resolution === "4k") {
-                    throw new Error("Seedream 5 Pro does not support 4k.");
+                    return { counts: { CREDIT: 0 } };
                 }
                 credits = count * (resolution === "2k" ? 150 : 75);
             } else if (
@@ -165,12 +168,12 @@ export default defineEndpoint({
                 model === "krea-2"
             ) {
                 if (resolution === "2k" || resolution === "4k") {
-                    throw new Error("The selected model supports up to 1k.");
+                    return { counts: { CREDIT: 0 } };
                 }
                 credits = count * (model === "krea-2" ? 10 : 50);
             } else {
                 if (resolution === "4k") {
-                    throw new Error("The selected model supports up to 2k.");
+                    return { counts: { CREDIT: 0 } };
                 }
                 credits = count *
                     ((model === "qwen-image-2.1" || model === "qwen-edit")

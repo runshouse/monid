@@ -10,6 +10,9 @@ export default defineEndpoint({
             "Automatically generate subtitles for your video in multiple languages. Monid waits for the project to finish. Download URLs expire; save the result promptly.",
         docsUrl: "https://docs.magichour.ai/api-reference",
         categories: ["video-generation"],
+        notes: [
+            "Magic Hour validates that the end time exceeds the start time.",
+        ],
     },
     endpoint: "/v1/auto-subtitle-generator",
     request: { method: "POST", path: "/v1/auto-subtitle-generator" },
@@ -141,8 +144,11 @@ export default defineEndpoint({
                 CREDIT: Math.round(
                     Math.ceil(
                         30 *
-                            (data.input.body.end_seconds -
-                                data.input.body.start_seconds),
+                            Math.max(
+                                0,
+                                data.input.body.end_seconds -
+                                    data.input.body.start_seconds,
+                            ),
                     ) * 0.2,
                 ),
             },

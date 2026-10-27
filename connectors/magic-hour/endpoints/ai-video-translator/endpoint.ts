@@ -10,6 +10,9 @@ export default defineEndpoint({
             "AI Video Translator. Specify an output resolution to estimate credits; 720p and 1080p require a paid plan. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
         docsUrl: "https://docs.magichour.ai/api-reference",
         categories: ["video-generation"],
+        notes: [
+            "Magic Hour validates that the clip duration is between 1 and 30 seconds and that the end time exceeds the start time.",
+        ],
     },
     request: { method: "POST", path: "/v1/ai-video-translator" },
     input: {
@@ -118,10 +121,7 @@ export default defineEndpoint({
         },
         estimate: ({ data }) => {
             const { end_seconds, start_seconds, resolution } = data.input.body;
-            const duration = end_seconds - (start_seconds ?? 0);
-            if (duration < 1 || duration > 30) {
-                throw new Error("Translation clips must be 1–30 seconds long.");
-            }
+            const duration = Math.max(0, end_seconds - (start_seconds ?? 0));
             return {
                 counts: {
                     CREDIT: Math.ceil(duration) *
