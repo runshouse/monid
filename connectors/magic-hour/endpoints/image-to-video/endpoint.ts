@@ -8,7 +8,7 @@ export default defineEndpoint({
         summary:
             "Animate a still image with Kling 3.0, Kling 2.6, Seedance, Veo or LTX",
         description:
-            "Animate a still image into a video with Kling 3.0, Kling 2.6, Seedance, Veo, LTX and other supported models. A 5-second Kling 3.0 clip at 720p with audio off uses an estimated 240 Magic Hour credits. Choose a concrete model and resolution. Actual credits settle on completion. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
+            "Animate a still image into a video with Kling 3.0, Kling 2.6, Seedance, Veo, LTX and other supported models. A 5-second Kling 3.0 clip at 720p with audio off uses an estimated 240 Magic Hour credits. Direct Magic Hour Creator usage billing estimates $0.288 for this clip or $0.576 for a 5-second 1080p clip with audio; both assume no video reference and all credits fall within the first 100,000 credits in the month. Usage billing requires setup: https://docs.magichour.ai/billing/usage-based-pricing. Monid sets its own hosted price; inspect it separately. Choose a concrete model and resolution. Actual credits settle on completion. Monid submits once, polls the corresponding project to completion and returns project metadata with expiring download URLs. Save outputs promptly. Upload local media through /v1/files/upload-urls and use its file_path; direct asset URLs are accepted where documented.",
         docsUrl: "https://docs.magichour.ai/api-reference",
         categories: ["video-generation"],
         notes: [
