@@ -14,7 +14,7 @@ export default defineEndpoint({
             "Kling 3.0 talking-ad rates verified 2026-10-27: 72 Magic Hour credits/second at 720p or 96 at 1080p, including audio. Inspect Monid for the hosted USD price; final project credits may differ. See https://docs.magichour.ai/api-reference/models.",
             "Supported durations are Kling 3–15 seconds; LTX 1–10 seconds and 15–60 in 5-second increments; Veo 4, 6, 8 and 15–141 in 7-second increments.",
             "LTX supports 480p, 720p and 1080p; Kling supports 720p and 1080p; Veo supports 720p. Availability depends on the account plan.",
-            "Scripts must be nonempty after trimming and at most 1,804 characters for LTX or 2,500 for Kling and Veo.",
+            "Scripts must be nonempty after trimming and at most 1,804 characters for LTX, 2,304 for Kling or 2,500 for Veo. LTX and Kling dialogue wrappers count toward the model prompt limit.",
         ],
     },
     request: { method: "POST", path: "/v1/ai-ugc-ad" },
@@ -27,7 +27,7 @@ export default defineEndpoint({
                     ),
                 }).strict(),
                 script: z.string().min(1).describe(
-                    "Spoken script. Trimmed maximum: 1,804 characters for LTX 2.5; 2,500 for Kling 3.0 or Veo 3.1.",
+                    "Spoken script. Trimmed maximum: 1,804 characters for LTX 2.5; 2,304 for Kling 3.0; 2,500 for Veo 3.1. LTX and Kling dialogue wrappers count toward the model prompt limit.",
                 ),
                 end_seconds: z.number().int().min(1).describe(
                     "Duration in seconds; permitted values depend on model. Free plans are limited to 5 seconds unless a credit pack was purchased.",
